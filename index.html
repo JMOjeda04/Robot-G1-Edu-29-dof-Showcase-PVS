@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PVS G1 EDU interactivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+<style>
+/* VOICE: showroom técnico, claro y entusiasta, para una clase de colegio.
+   IDEA: la vista explosionada de los catálogos de autos: cada pieza sale volando de su lugar y vuelve.
+   PICTURE: el G1 en 3D en el centro del escenario; al tocar una parte se desarma con etiquetas.
+   COLOUR and TYPE: escenario grafito o gris de estudio, carcasas blancas, juntas oscuras, cobre de bobinas, un azul cobalto de acento. Archivo ancho.
+   LAYOUT: escenario grande + panel lateral de ficha (apilado debajo en pantallas angostas). */
+:root{color-scheme:light dark;
+  --bg:light-dark(#eef0f2,#0f1215);--ink:light-dark(#12161a,#eef1f4);--mut:light-dark(#56606a,#9aa5b0);
+  --line:light-dark(#d5dadf,#252b32);--card:light-dark(#ffffff,#171b20);--acc:light-dark(#2457e6,#7aa2ff);
+  --st1:light-dark(#fbfcfd,#2b323a);--st2:light-dark(#cdd3d9,#0b0d10)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Archivo,system-ui,sans-serif;overflow-x:clip;display:flex;flex-direction:column}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.top{display:flex;align-items:center;gap:12px 24px;flex-wrap:wrap;padding:12px max(2vw,16px);border-bottom:1px solid var(--line)}
+.top h1{margin:0;font-size:24px;line-height:1.05;font-weight:850;font-stretch:118%}
+.top p{margin:2px 0 0;color:var(--mut);font-size:14px}
+.nav{display:flex;gap:6px;overflow-x:auto;margin-left:auto;padding:2px}
+.nav button{flex:none;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:14px;font-weight:600}
+.nav button[aria-current=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.wrap{flex:1;display:grid;grid-template-columns:minmax(0,1fr) 430px;min-height:0}
+.stage{position:relative;overflow:hidden;background:radial-gradient(120% 90% at 50% 38%,var(--st1),var(--st2));min-height:420px;touch-action:none}
+.stage canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
+.hint{position:absolute;left:16px;top:14px;font-size:14px;font-weight:600;background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:999px;transition:opacity .5s;pointer-events:none}
+.hint.off{opacity:0}
+.tip{position:absolute;left:0;top:0;pointer-events:none;background:var(--ink);color:var(--bg);font-size:13px;font-weight:700;padding:4px 9px;border-radius:6px;opacity:0;transition:opacity .15s;white-space:nowrap}
+.tip.on{opacity:1}
+.labels{position:absolute;inset:0;pointer-events:none}
+.tag{position:absolute;left:0;top:0;opacity:0;transition:opacity .35s}
+.tag.on{opacity:1}
+.tag::before{content:"";position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 2px var(--card)}
+.tag::after{content:"";position:absolute;left:4px;top:-.5px;width:12px;height:1px;background:var(--acc)}
+.tag span{position:absolute;left:16px;top:-12px;white-space:nowrap;font-size:13px;font-weight:650;line-height:24px;padding:0 8px;border-radius:5px;background:var(--card);border:1px solid var(--line)}
+.tag.l span{top:-40px;left:8px}.tag.l::after{left:0;top:-16px;width:1px;height:12px}
+.controls{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;width:max-content;max-width:calc(100% - 24px)}
+.controls button{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:14px;font-weight:650}
+.controls button[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+.panel{border-left:1px solid var(--line);overflow-y:auto;padding:26px 26px 40px;background:var(--card)}
+.kick{margin:0 0 6px;color:var(--acc);font-weight:700;font-size:14px}
+.panel h2{margin:0 0 12px;font-size:clamp(28px,3vw,36px);line-height:1.05;font-weight:850;font-stretch:112%;text-wrap:balance}
+.lead{margin:0 0 18px}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:22px}
+.stats div{background:var(--card);padding:10px 12px}
+.stats b{display:block;font-size:22px;font-weight:800;font-stretch:110%;white-space:nowrap}
+.stats span{font-size:13px;color:var(--mut)}
+.panel h3{font-size:17px;margin:24px 0 8px;font-weight:800}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:700;color:var(--mut);font-size:13px;border-bottom:1px solid var(--line);padding:6px 6px 6px 0}
+td{border-bottom:1px solid var(--line);padding:7px 6px 7px 0;vertical-align:top}
+td.n,th.n{text-align:right;white-space:nowrap}td.m{white-space:nowrap}
+.note{font-size:13px;color:var(--mut);margin:8px 0 0}
+dl{margin:0}dl div{padding:9px 0;border-bottom:1px solid var(--line)}
+dt{font-weight:750}dd{margin:2px 0 0;color:var(--mut);font-size:15px}
+.fact{margin-top:22px;padding:14px 16px;border-radius:10px;background:light-dark(#eaf0ff,#1a2440);font-size:15px}
+.fact b{display:block;color:var(--acc)}
+.bar{display:grid;grid-template-columns:5.5em minmax(0,1fr) auto;align-items:center;gap:10px;padding:5px 0;font-size:14px}
+.bar i{display:block;height:12px;border-radius:6px;background:var(--acc)}
+.bar b{white-space:nowrap;font-size:13px;color:var(--mut);font-weight:600}
+.secbtn{margin-top:20px;width:100%;min-height:48px;border-radius:10px;border:0;background:var(--ink);color:var(--bg);font-weight:750;font-size:15px}
+.err{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--mut)}
+@media(max-width:900px){
+  body{display:block}
+  .wrap{display:block}
+  .stage{height:62vh;min-height:380px}
+  .panel{border-left:0;border-top:1px solid var(--line);overflow:visible}
+  .nav{margin-left:0;width:100%}
+}
+@media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px;border-bottom:1px solid var(--line)}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;white-space:normal;color:var(--mut)}.stack td:empty{display:none}.controls{bottom:10px;gap:4px}.controls button{padding:0 10px;font-size:13px;min-height:40px}#bHome{display:none}.tag span{font-size:13px}}
+@media(prefers-reduced-motion:reduce){.tag,.hint,.tip{transition:none}}
+</style>
+<script>new MutationObserver(()=>{for(const c of document.querySelectorAll('.stack td:not([data-l])')){let i=0,p=c;while(p=p.previousElementSibling)i+=p.colSpan;c.dataset.l=c.closest('table').rows[0].cells[i]?.textContent||''}}).observe(document,{childList:true,subtree:true})</script>
+</head>
+<body>
+<header class="top">
+  <div><h1>PVS G1 EDU</h1><p>29 grados de libertad · manos diestras de 5 dedos</p></div>
+  <nav class="nav" id="nav" aria-label="Partes del robot">
+    <button data-k="overview">Vista general</button>
+    <button data-k="head">Cabeza</button>
+    <button data-k="torso">Torso</button>
+    <button data-k="waist">Cintura</button>
+    <button data-k="armL">Brazo</button>
+    <button data-k="handL">Mano</button>
+    <button data-k="legL">Pierna</button>
+  </nav>
+</header>
+<main class="wrap">
+  <section class="stage" id="stage" aria-label="Modelo 3D del robot">
+    <div class="labels" id="labels"></div>
+    <div class="hint" id="hint">Tocá una parte del robot para desarmarla</div>
+    <div class="tip" id="tip"></div>
+    <div class="controls">
+      <button id="bAll" aria-pressed="false">Desarmar todo</button>
+      <button id="bReplay">Ver ensamblado</button>
+      <button id="bRot" aria-pressed="false">Girar</button>
+      <button id="bHome">Vista general</button>
+    </div>
+  </section>
+  <aside class="panel" id="panel" aria-live="polite"></aside>
+</main>
+
+<script src="lib/three.min.js"></script>
+<script src="lib/OrbitControls.js"></script>
+<script src="lib/GLTFLoader.js"></script>
+<script>
+{
+/* ---------- contenido ---------- */
+const ACT_PARTS=[
+ ['Carcasa','Envuelve el motor y lo une a la pieza siguiente. Los cables pasan por adentro: todas las articulaciones son huecas.'],
+ ['Encoder doble','Dos sensores de ángulo, uno en el motor y otro en la salida. Así el robot sabe con exactitud la posición de cada articulación.'],
+ ['Estátor','Bobinas de cobre fijas. Al pasarles corriente generan un campo magnético que gira.'],
+ ['Rotor de imanes','Imanes permanentes que siguen ese campo y giran: es un motor síncrono de imanes permanentes (PMSM) de rotor interno y baja inercia, que responde rápido y disipa bien el calor.'],
+ ['Reductor planetario','Engranajes que bajan la velocidad del motor y multiplican su fuerza de giro (torque).'],
+ ['Rodamiento de rodillos cruzados','Rodamiento de grado industrial: aguanta cargas en todas las direcciones con mucha precisión.'],
+ ['Brida de salida','La pieza que finalmente gira y mueve el siguiente segmento del cuerpo.']
+];
+const INFO={
+overview:{kick:'Robot humanoide · versión EDU de 29 GDL',title:'PVS G1 EDU',
+ lead:'Modelo 3D oficial del fabricante, con manos Inspire. Un humanoide de 1,3 m y unos 35 kg pensado para investigar y enseñar robótica. Esta unidad tiene el cuerpo completo de 29 grados de libertad (GDL) y manos diestras de cinco dedos. Tocá cualquier parte del robot para desarmarla y ver qué tiene adentro.',
+ stats:[['≈1,3 m','altura de pie'],['≈35 kg','con batería'],['29 + 12','GDL del cuerpo + manos'],['2 m/s','velocidad máxima'],['≈2 h','de autonomía'],['100 TOPS','de cómputo para IA']],
+ dof:[['Piernas',12,'6 + 6'],['Cintura',3,'3'],['Brazos',14,'7 + 7'],['Manos',12,'6 + 6 activos']],
+ partsTitle:'Cómo usar la presentación',
+ parts:[['Clic o toque en el robot','Elige una parte: la cámara se acerca, la pieza se desarma y acá aparece su ficha.'],['Arrastrar · rueda o pellizco','Gira la vista y hace zoom.'],['Teclado','← → pasan de parte en parte · Espacio arma o desarma · Esc vuelve a la vista general.']],
+ fact:'Cada grado de libertad es un motor que hace girar una articulación en un sentido. Un brazo humano tiene 7, igual que cada brazo del G1 EDU.',note:'Los motores, placas y sensores internos se agregan como ilustración. Créditos del modelo 3D: Unitree Robotics, unitree_ros (licencia BSD-3).'},
+head:{kick:'Cabeza · 0 GDL · percepción',title:'Los sentidos del robot',
+ lead:'La cabeza no tiene motores: es el puesto de los sensores. Desde ahí el G1 arma un mapa 3D de lo que lo rodea y calcula a qué distancia está cada cosa.',
+ stats:[['360°','visión del LiDAR'],['D435i','cámara de profundidad'],['4','micrófonos'],['5 W','parlante']],
+ parts:[['LiDAR 3D Livox MID-360','Dispara pulsos láser y mide cuánto tardan en volver. Con eso arma una "nube de puntos" 3D a su alrededor, sin girar la cabeza, para mapear y esquivar obstáculos.'],
+  ['Cámara Intel RealSense D435i','Tiene dos cámaras infrarrojas separadas, como nuestros ojos: comparando ambas imágenes calcula la distancia de cada píxel. La "i" indica que trae un sensor de movimiento (IMU).'],
+  ['Visor y anillo LED','El frente oscuro protege los sensores; las luces muestran el estado del robot.'],
+  ['Micrófonos y parlante','Cuatro micrófonos con cancelación de ruido y eco y un parlante de 5 W permiten hablarle y que responda.']],
+ fact:'Combinar LiDAR (muy preciso midiendo distancias) con una cámara (que ve formas y colores) se llama fusión de sensores: cada uno tapa los puntos débiles del otro.'},
+torso:{kick:'Torso · cómputo y energía',title:'El cerebro y la batería',
+ lead:'En el pecho viajan dos computadoras y en la espalda va la batería. Una computadora se ocupa sólo del equilibrio y los motores; la otra, una NVIDIA Jetson, es la que se programa en la versión EDU.',
+ stats:[['100 TOPS','Jetson Orin NX 16 GB'],['8 núcleos','CPU de control'],['9000 mAh','≈421 Wh'],['≈2 h','por carga']],
+ parts:[['Placa de control de movimiento','CPU de 8 núcleos que lee los sensores de todas las articulaciones y corrige la postura cientos de veces por segundo para no caerse.'],
+  ['NVIDIA Jetson Orin NX 16 GB','La computadora para IA (hasta 100 TOPS). Ahí corren los programas propios: visión, navegación o aprendizaje por refuerzo, con ROS 2 y el kit de programación (SDK) del robot.'],
+  ['Batería inteligente extraíble','Litio de 13 celdas en serie, 9000 mAh (≈421 Wh). Se cambia en segundos y se carga con un cargador de 54 V / 5 A.'],
+  ['Ventilador','Refrigeración por aire para la electrónica.'],
+  ['IMU del torso','Un segundo giroscopio + acelerómetro en el pecho, que ayuda a estimar la postura de la parte de arriba del cuerpo.'],
+  ['Parlante y conectividad','Parlante de 5 W, Wi-Fi 6 y Bluetooth 5.2 para controlarlo y recibir actualizaciones por aire (OTA).']],
+ fact:'100 TOPS son 100 billones de operaciones por segundo: suficiente para reconocer objetos y personas en video en tiempo real.'},
+waist:{kick:'Cintura · 3 GDL',title:'Una cintura que gira casi entera',
+ lead:'El G1 básico sólo gira la cintura hacia los costados. La versión de 29 GDL suma dos motores para inclinarse hacia adelante y hacia los lados, lo que le da mucho más alcance con los brazos.',
+ stats:[['±155°','giro de cintura'],['3','motores'],['6 ejes','IMU: giroscopio + acelerómetro'],['2','GDL extra vs. básico']],
+ cols:['Articulación','Motor','Torque','Rango'],
+ rows:[['Giro (yaw)','N7520-14.3','88 N·m','±155°'],['Inclinación lateral (roll)','N5020-16','35 N·m','±30°'],['Inclinación adelante (pitch)','N5020-16','35 N·m','±30°']],
+ note:'Torque: límite de cada articulación en el modelo 3D oficial del fabricante (URDF). Motores: configuración de simulación del fabricante. Rangos: ficha oficial.',
+ partsTitle:'Sensores y motores de la cintura',parts:[['IMU: giroscopio + acelerómetro','Un chip ubicado en la pelvis, cerca del centro de gravedad. El giroscopio mide qué tan rápido gira el cuerpo en cada eje; el acelerómetro mide las aceleraciones y hacia dónde apunta la gravedad. Combinando los dos, el robot sabe si se está inclinando o cayendo y corrige la postura al instante.'],['Encoders: medir el ángulo (en vez de potenciómetros)','Un servo escolar mide su ángulo con un potenciómetro: una resistencia que cambia de valor al girar. Cada motor del G1 hace ese mismo trabajo con dos encoders, uno en el motor y otro en la salida, que son más precisos y no se desgastan con el roce.']].concat(ACT_PARTS),
+ fact:'Una persona gira el tronco unos 30° hacia cada lado; el G1 llega a 155°, casi mirando para atrás.'},
+arm:{kick:'Brazo · 7 GDL',title:'Un brazo con muñeca completa',
+ lead:'Tres motores en el hombro, uno en el codo y tres en la muñeca: los mismos 7 grados de libertad que un brazo humano. La versión de 29 GDL agrega los dos motores de muñeca que el básico no tiene, y cada brazo levanta unos 3 kg.',
+ stats:[['7','motores por brazo'],['≈3 kg','carga máxima'],['±92,5°','muñeca'],['≈0,45 m','largo del brazo']],
+ cols:['Articulación','Motor','Torque','Rango'],
+ rows:[['Hombro adelante/atrás','N5020-16','25 N·m','−177° a +153°'],['Hombro lateral','N5020-16','25 N·m','−91° a +129°'],['Hombro giro','N5020-16','25 N·m','±150°'],['Codo','N5020-16','25 N·m','−60° a +120°'],['Muñeca giro (roll)','N5020-16','25 N·m','±113°'],['Muñeca arriba/abajo (pitch)','W4010-25','5 N·m','±92,5°'],['Muñeca lateral (yaw)','W4010-25','5 N·m','±92,5°']],
+ note:'Torque y rangos de hombro, codo y giro de muñeca: modelo 3D oficial del fabricante (URDF). Muñeca pitch/yaw: ficha oficial.',
+ partsTitle:'Qué tiene adentro cada articulación',parts:ACT_PARTS,
+ fact:'Tener 7 GDL deja un grado "de sobra": el robot puede mover el codo sin mover la mano, como cuando esquivás algo mientras abrís una puerta.'},
+hand:{kick:'Mano diestra · 6 GDL activos · 12 articulaciones',title:'Cinco dedos con fuerza controlada',
+ lead:'Estas manos se agregan aparte al G1 de 29 GDL. El modelo 3D es la Inspire RH56DFQ, la mano de cinco dedos que el fabricante publica para el G1: seis micromotores lineales mueven doce articulaciones.',
+ stats:[['6','motores por mano'],['12','articulaciones'],['±0,2 mm','repetibilidad'],['≈540 g','por mano']],
+ cols:['Versión','Pulgar','Dedos','Se destaca por'],
+ rows:[['RH56DFX','15 N','10 N','Fuerza de agarre'],['RH56BFX','6 N','4 N','Velocidad: 570°/s'],['RH56DFQ','6 N','4 N','Versión integrada de fábrica']],
+ note:'Fuerza máxima en la punta de los dedos según los vendedores de cada versión.',
+ partsTitle:'Qué ves al desarmarla',
+ parts:[['12 articulaciones con 6 motores','Cada dedo tiene dos falanges unidas por un mecanismo: un solo motor las dobla juntas, como al cerrar el puño. El pulgar tiene dos motores: uno lo dobla y otro lo gira hacia la palma.'],
+  ['6 servos lineales','Pequeños motores que empujan y tiran en línea recta, escondidos dentro de la palma.'],
+  ['Sensores de fuerza','Miden cuánto aprieta cada dedo (resolución de 0,5 N): así puede agarrar un huevo sin romperlo.'],
+  ['Autobloqueo','Si se corta la energía, los dedos quedan trabados y no sueltan lo que sostienen.'],
+  ['Placa controladora','Habla con la computadora del robot por RS485 y funciona con 24 V.']],
+ fact:'15 N en la punta del pulgar equivalen a sostener 1,5 kg con un solo dedo. La mano de fábrica opcional del G1, la Dex3-1, tiene sólo 3 dedos.'},
+leg:{kick:'Pierna · 6 GDL',title:'Piernas para caminar, correr y agacharse',
+ lead:'Tres motores en la cadera, uno en la rodilla y dos en el tobillo. Son los motores más grandes del robot: la rodilla del EDU llega a 120 N·m, contra 90 N·m del modelo básico.',
+ stats:[['120 N·m','torque de rodilla'],['0–165°','flexión de rodilla'],['0,6 m','muslo + pantorrilla'],['2 m/s','velocidad máxima']],
+ cols:['Articulación','Motor','Torque','Rango'],
+ rows:[['Cadera adelante/atrás','N7520-14.3','88 N·m','±154°'],['Cadera lateral','N7520-22.5','139 N·m','−30° a +170°'],['Cadera giro','N7520-14.3','88 N·m','±158°'],['Rodilla','N7520-22.5','120 N·m*','0–165°'],['Tobillo pitch','N5020-16','35 N·m','−50° a +30°'],['Tobillo roll','N5020-16','35 N·m','±15°']],
+ note:'* El fabricante publica 120 N·m como torque máximo de rodilla del EDU; su modelo 3D (URDF) usa 139 N·m como límite. Tobillo: rangos del URDF.',
+ partsTitle:'Qué ves al desarmarla',
+ parts:[['Motores y barras del tobillo','Los dos motores del tobillo van arriba, en la pantorrilla, y mueven el pie con barras. Así el pie queda liviano y la pierna puede moverse más rápido.']].concat(ACT_PARTS),
+ fact:'La cadera del G1 barre 308° hacia adelante y atrás; la de una persona, unos 140°. La rodilla dobla 165°, contra unos 135° en humanos.'}
+};
+const NAMES={head:'Cabeza',torso:'Torso',waist:'Cintura',armL:'Brazo izquierdo',armR:'Brazo derecho',handL:'Mano izquierda',handR:'Mano derecha',legL:'Pierna izquierda',legR:'Pierna derecha'};
+const ORDER=['overview','head','torso','waist','armL','handL','legL'];
+const infoKey=k=>k==='overview'?k:k.replace(/[LR]$/,'');
+
+const $=s=>document.querySelector(s);
+const stage=$('#stage'),panel=$('#panel'),tip=$('#tip'),hint=$('#hint'),labelsEl=$('#labels');
+
+function render(k){
+  const d=INFO[infoKey(k)];
+  let h=`<p class="kick">${d.kick}</p><h2>${d.title}</h2><p class="lead">${d.lead}</p>
+  <div class="stats">${d.stats.map(([v,l])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div>`;
+  if(d.dof)h+=`<h3>Dónde están sus 41 motores</h3>${d.dof.map(([n,v,t])=>`<div class="bar"><span>${n}</span><i style="width:${v/14*100}%"></i><b>${t}</b></div>`).join('')}`;
+  if(d.rows)h+=`<h3>${k.startsWith('hand')?'Versiones de la mano Inspire RH56':'Articulaciones y motores'}</h3><table class="stack"><thead><tr>${d.cols.map((c,i)=>`<th${i==2?' class="n"':''}>${c}</th>`).join('')}</tr></thead><tbody>${d.rows.map(r=>`<tr>${r.map((c,i)=>`<td${i==2?' class="n"':i==1?' class="m"':''}>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  if(d.note)h+=`<p class="note">${d.note}</p>`;
+  if(d.parts)h+=`<h3>${d.partsTitle||'Qué ves al desarmarla'}</h3><dl>${d.parts.map(([n,t])=>`<div><dt>${n}</dt><dd>${t}</dd></div>`).join('')}</dl>`;
+  if(d.fact)h+=`<div class="fact"><b>¿Sabías que…?</b>${d.fact}</div>`;
+  if(k!=='overview')h+=`<button class="secbtn" id="bSec"></button>`;
+  panel.innerHTML=h;panel.scrollTop=0;
+  const b=$('#bSec');if(b){b.onclick=()=>toggleSec();syncSecBtn();}
+}
+
+if(!window.THREE||!THREE.OrbitControls||!THREE.GLTFLoader){stage.insertAdjacentHTML('beforeend','<div class="err">No se pudo cargar el visor 3D. Revisá la conexión a internet y recargá la página.</div>');render('overview');}
+else{
+/* ---------- escena ---------- */
+const showErr=msg=>{let d=$('#errbox');if(!d){d=document.createElement('div');d.id='errbox';d.className='err';d.style.cssText='inset:auto 12px 70px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;font-size:13px;color:var(--ink)';stage.appendChild(d);}d.textContent='Error del visor 3D: '+msg;};
+addEventListener('error',e=>{if(e.message&&e.message!=='Script error.')showErr(e.message);});
+
+const DUR=matchMedia('(prefers-reduced-motion: reduce)').matches?0:1;
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.localClippingEnabled=true;
+renderer.setClearColor(0x000000,0);
+stage.prepend(renderer.domElement);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(30,1,.01,60);
+const HOME_T=new THREE.Vector3(0,.68,0),HOME_P=new THREE.Vector3(1.55,1.1,2.55);
+camera.position.copy(HOME_P);
+const controls=new THREE.OrbitControls(camera,renderer.domElement);
+controls.target.copy(HOME_T);controls.enableDamping=true;controls.dampingFactor=.08;
+controls.minDistance=.3;controls.maxDistance=7;controls.maxPolarAngle=Math.PI*.55;controls.autoRotateSpeed=1.2;
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x3a4450,.8));
+const key=new THREE.DirectionalLight(0xffffff,1.9);key.position.set(2,4,3);key.castShadow=true;
+key.shadow.mapSize.set(2048,2048);Object.assign(key.shadow.camera,{left:-1.4,right:1.4,top:1.9,bottom:-.6,near:.5,far:12});key.shadow.bias=-.0004;key.shadow.normalBias=.01;scene.add(key);
+const rim=new THREE.DirectionalLight(0xa9c4ff,1.1);rim.position.set(-3,2,-3);scene.add(rim);
+const fill=new THREE.DirectionalLight(0xffffff,.45);fill.position.set(-2,1,3);scene.add(fill);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(8,8),new THREE.ShadowMaterial({opacity:.28}));
+floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+const grid=new THREE.PolarGridHelper(1.3,16,6,72,0x8a95a3,0x8a95a3);grid.material.transparent=true;grid.material.opacity=.28;grid.position.y=.001;scene.add(grid);
+
+/* ---------- materiales ---------- */
+const M=(c,o={})=>{const m=new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.45,metalness:.1},o));m.color.convertSRGBToLinear();m.emissive.convertSRGBToLinear();return m;};
+const matSet=()=>({
+ white:M(0xe4e7eb,{roughness:.38,metalness:.15}),
+ dark:M(0x34383e,{roughness:.4,metalness:.35}),
+ hand:M(0x5b6068,{roughness:.38,metalness:.45}),
+ metal:M(0xbcc3cb,{roughness:.22,metalness:.9}),
+ copper:M(0xc9773d,{roughness:.32,metalness:.85}),
+ magnet:M(0x5d646c,{roughness:.35,metalness:.75}),
+ pcb:M(0x1d6a44,{roughness:.6}),
+ accent:M(0x3d73ff,{roughness:.35,emissive:0x1a3fb0,emissiveIntensity:.8}),
+ black:M(0x14171b,{roughness:.35,metalness:.2}),
+ battery:M(0x3a4048,{roughness:.55})});
+const SECS=Object.keys(NAMES);const mats={};SECS.forEach(s=>mats[s]=matSet());
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+const cyl=(rt,rb,h,m,seg=32)=>new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,seg),m);
+const box=(x,y,z,m)=>new THREE.Mesh(new THREE.BoxGeometry(x,y,z),m);
+
+/* ---------- modelo oficial (URDF) ---------- */
+const META={"links":{"pelvis":{"mat":"dark","parent":null,"c":[0.0,0.7121,-0.0001],"size":[0.1289,0.15,0.0977]},"pelvis_contour_link":{"mat":"white","parent":"pelvis","c":[0.0007,0.6965,0.0058],"size":[0.1398,0.1288,0.1306]},"left_hip_pitch_link":{"mat":"dark","parent":"pelvis","c":[0.1138,0.6606,0.0023],"size":[0.0987,0.1191,0.0894]},"left_hip_roll_link":{"mat":"white","parent":"left_hip_pitch_link","c":[0.1161,0.6152,0.0583],"size":[0.0985,0.1795,0.1058]},"left_hip_yaw_link":{"mat":"white","parent":"left_hip_roll_link","c":[0.1155,0.4253,0.0498],"size":[0.0888,0.2544,0.1305]},"left_knee_link":{"mat":"white","parent":"left_hip_yaw_link","c":[0.1185,0.2094,0.0308],"size":[0.0716,0.3541,0.139]},"left_ankle_pitch_link":{"mat":"white","parent":"left_knee_link","c":[0.1185,0.0471,-0.0325],"size":[0.013,0.0377,0.036]},"left_ankle_roll_link":{"mat":"dark","parent":"left_ankle_pitch_link","c":[0.1186,0.0295,0.0119],"size":[0.0755,0.059,0.2091]},"right_hip_pitch_link":{"mat":"dark","parent":"pelvis","c":[-0.1138,0.6611,0.0025],"size":[0.0988,0.1194,0.0892]},"right_hip_roll_link":{"mat":"white","parent":"right_hip_pitch_link","c":[-0.1164,0.6156,0.0572],"size":[0.0978,0.1803,0.1079]},"right_hip_yaw_link":{"mat":"white","parent":"right_hip_roll_link","c":[-0.1154,0.4254,0.0493],"size":[0.0888,0.2546,0.1318]},"right_knee_link":{"mat":"white","parent":"right_hip_yaw_link","c":[-0.1187,0.2101,0.0301],"size":[0.0721,0.3544,0.1379]},"right_ankle_pitch_link":{"mat":"white","parent":"right_knee_link","c":[-0.1185,0.047,-0.0325],"size":[0.0131,0.0377,0.036]},"right_ankle_roll_link":{"mat":"dark","parent":"right_ankle_pitch_link","c":[-0.1185,0.0295,0.0122],"size":[0.0757,0.059,0.2083]},"waist_yaw_link":{"mat":"white","parent":"pelvis","c":[0.0006,0.8115,-0.0001],"size":[0.087,0.0542,0.0855]},"waist_roll_link":{"mat":"white","parent":"waist_yaw_link","c":[0.0,0.8286,-0.004],"size":[0.0205,0.0247,0.034]},"torso_link":{"mat":"white","parent":"waist_roll_link","c":[-0.0005,0.98,0.0044],"size":[0.2158,0.3214,0.1503]},"logo_link":{"mat":"dark","parent":"torso_link","c":[0.0005,1.0561,0.0015],"size":[0.1487,0.029,0.1478]},"head_link":{"mat":"dark","parent":"torso_link","c":[0.0,1.2123,0.0037],"size":[0.1557,0.2055,0.1405]},"left_shoulder_pitch_link":{"mat":"white","parent":"torso_link","c":[0.1349,1.0768,-0.0],"size":[0.0843,0.0795,0.0633]},"left_shoulder_roll_link":{"mat":"white","parent":"left_shoulder_pitch_link","c":[0.1498,1.038,0.0004],"size":[0.0843,0.1381,0.0812]},"left_shoulder_yaw_link":{"mat":"white","parent":"left_shoulder_roll_link","c":[0.1679,0.933,0.0082],"size":[0.0795,0.1528,0.0818]},"left_elbow_link":{"mat":"white","parent":"left_shoulder_yaw_link","c":[0.1918,0.8596,0.0354],"size":[0.0688,0.1366,0.0989]},"left_wrist_roll_link":{"mat":"white","parent":"left_elbow_link","c":[0.2003,0.7876,0.0686],"size":[0.0658,0.0697,0.0637]},"left_wrist_pitch_link":{"mat":"white","parent":"left_wrist_roll_link","c":[0.2089,0.7543,0.0929],"size":[0.0621,0.1039,0.089]},"left_wrist_yaw_link":{"mat":"white","parent":"left_wrist_pitch_link","c":[0.2174,0.7267,0.114],"size":[0.0555,0.0758,0.0751]},"right_shoulder_pitch_link":{"mat":"white","parent":"torso_link","c":[-0.135,1.0767,0.0001],"size":[0.084,0.0795,0.0637]},"right_shoulder_roll_link":{"mat":"white","parent":"right_shoulder_pitch_link","c":[-0.1498,1.038,0.0004],"size":[0.0844,0.1381,0.0812]},"right_shoulder_yaw_link":{"mat":"white","parent":"right_shoulder_roll_link","c":[-0.168,0.9337,0.0081],"size":[0.0791,0.1528,0.0817]},"right_elbow_link":{"mat":"white","parent":"right_shoulder_yaw_link","c":[-0.1926,0.8595,0.0355],"size":[0.0681,0.1369,0.0991]},"right_wrist_roll_link":{"mat":"white","parent":"right_elbow_link","c":[-0.2004,0.7875,0.0684],"size":[0.0657,0.0699,0.0633]},"right_wrist_pitch_link":{"mat":"white","parent":"right_wrist_roll_link","c":[-0.2085,0.7542,0.0931],"size":[0.0635,0.1029,0.0891]},"right_wrist_yaw_link":{"mat":"white","parent":"right_wrist_pitch_link","c":[-0.2175,0.727,0.1139],"size":[0.0552,0.0752,0.0753]},"L_hand_base_link":{"mat":"dark","parent":"left_wrist_yaw_link","c":[0.2217,0.6426,0.1695],"size":[0.0636,0.1487,0.1217]},"L_thumb_proximal_base":{"mat":"dark","parent":"L_hand_base_link","c":[0.2051,0.6604,0.1834],"size":[0.0234,0.0191,0.023]},"L_thumb_proximal":{"mat":"dark","parent":"L_thumb_proximal_base","c":[0.1833,0.6596,0.2098],"size":[0.0491,0.0378,0.0632]},"L_thumb_intermediate":{"mat":"dark","parent":"L_thumb_proximal","c":[0.1698,0.6533,0.2382],"size":[0.0324,0.0265,0.0436]},"L_thumb_distal":{"mat":"dark","parent":"L_thumb_intermediate","c":[0.1565,0.6467,0.2609],"size":[0.0211,0.0204,0.0286]},"L_index_proximal":{"mat":"dark","parent":"L_hand_base_link","c":[0.2349,0.5927,0.2316],"size":[0.0221,0.0442,0.0352]},"L_index_intermediate":{"mat":"dark","parent":"L_index_proximal","c":[0.2244,0.5616,0.2522],"size":[0.0277,0.0442,0.0304]},"L_middle_proximal":{"mat":"dark","parent":"L_hand_base_link","c":[0.2367,0.5819,0.2151],"size":[0.0223,0.0445,0.034]},"L_middle_intermediate":{"mat":"dark","parent":"L_middle_proximal","c":[0.2219,0.5492,0.2349],"size":[0.0329,0.0452,0.0285]},"L_ring_proximal":{"mat":"dark","parent":"L_hand_base_link","c":[0.2378,0.5719,0.1979],"size":[0.0235,0.0448,0.0321]},"L_ring_intermediate":{"mat":"dark","parent":"L_ring_proximal","c":[0.2218,0.5405,0.2146],"size":[0.0348,0.0421,0.0248]},"L_pinky_proximal":{"mat":"dark","parent":"L_hand_base_link","c":[0.2387,0.5628,0.1803],"size":[0.0248,0.0449,0.0302]},"L_pinky_intermediate":{"mat":"dark","parent":"L_pinky_proximal","c":[0.2229,0.5342,0.1938],"size":[0.033,0.0351,0.0196]},"R_hand_base_link":{"mat":"dark","parent":"right_wrist_yaw_link","c":[-0.2217,0.6426,0.1698],"size":[0.0639,0.1468,0.1228]},"R_thumb_proximal_base":{"mat":"dark","parent":"R_hand_base_link","c":[-0.2047,0.6601,0.183],"size":[0.0242,0.0192,0.0222]},"R_thumb_proximal":{"mat":"dark","parent":"R_thumb_proximal_base","c":[-0.1801,0.6578,0.2069],"size":[0.0527,0.0394,0.0604]},"R_thumb_intermediate":{"mat":"dark","parent":"R_thumb_proximal","c":[-0.165,0.65,0.2341],"size":[0.0339,0.0277,0.0426]},"R_thumb_distal":{"mat":"dark","parent":"R_thumb_intermediate","c":[-0.1499,0.6423,0.2556],"size":[0.0222,0.021,0.0273]},"R_index_proximal":{"mat":"dark","parent":"R_hand_base_link","c":[-0.2349,0.5926,0.2317],"size":[0.0221,0.0441,0.0352]},"R_index_intermediate":{"mat":"dark","parent":"R_index_proximal","c":[-0.2239,0.5616,0.2521],"size":[0.028,0.0441,0.0304]},"R_middle_proximal":{"mat":"dark","parent":"R_hand_base_link","c":[-0.2367,0.5819,0.2151],"size":[0.0223,0.0445,0.0339]},"R_middle_intermediate":{"mat":"dark","parent":"R_middle_proximal","c":[-0.2219,0.5492,0.2349],"size":[0.0329,0.0454,0.0286]},"R_ring_proximal":{"mat":"dark","parent":"R_hand_base_link","c":[-0.2378,0.572,0.198],"size":[0.0235,0.0449,0.032]},"R_ring_intermediate":{"mat":"dark","parent":"R_ring_proximal","c":[-0.2219,0.5404,0.2147],"size":[0.0349,0.0421,0.0248]},"R_pinky_proximal":{"mat":"dark","parent":"R_hand_base_link","c":[-0.2387,0.563,0.1803],"size":[0.0248,0.045,0.0301]},"R_pinky_intermediate":{"mat":"dark","parent":"R_pinky_proximal","c":[-0.2229,0.5342,0.1938],"size":[0.0331,0.0351,0.0197]}},"joints":{"pelvis_contour_joint":{"parent":"pelvis","child":"pelvis_contour_link","type":"fixed","pos":[0.0,0.7846,0.0],"axis":[0.0,0.0,0.0],"effort":0},"left_hip_pitch_joint":{"parent":"pelvis","child":"left_hip_pitch_link","type":"revolute","pos":[0.0645,0.6819,0.0],"axis":[1.0,0.0,0.0],"effort":88.0},"left_hip_roll_joint":{"parent":"left_hip_pitch_link","child":"left_hip_roll_link","type":"revolute","pos":[0.1165,0.6516,0.003],"axis":[0.0,0.2715,0.9625],"effort":139.0},"left_hip_yaw_joint":{"parent":"left_hip_roll_link","child":"left_hip_yaw_link","type":"revolute","pos":[0.1165,0.5389,0.0608],"axis":[0.0,0.9625,-0.2715],"effort":88.0},"left_knee_joint":{"parent":"left_hip_yaw_link","child":"left_knee_link","type":"revolute","pos":[0.1186,0.347,0.0336],"axis":[1.0,0.0,0.0],"effort":139.0},"left_ankle_pitch_joint":{"parent":"left_knee_link","child":"left_ankle_pitch_link","type":"revolute","pos":[0.1185,0.053,-0.026],"axis":[1.0,0.0,0.0],"effort":35.0},"left_ankle_roll_joint":{"parent":"left_ankle_pitch_link","child":"left_ankle_roll_link","type":"revolute","pos":[0.1185,0.0354,-0.026],"axis":[0.0,0.0,1.0],"effort":35.0},"right_hip_pitch_joint":{"parent":"pelvis","child":"right_hip_pitch_link","type":"revolute","pos":[-0.0645,0.6819,0.0],"axis":[1.0,0.0,0.0],"effort":88.0},"right_hip_roll_joint":{"parent":"right_hip_pitch_link","child":"right_hip_roll_link","type":"revolute","pos":[-0.1165,0.6516,0.003],"axis":[0.0,0.2715,0.9625],"effort":139.0},"right_hip_yaw_joint":{"parent":"right_hip_roll_link","child":"right_hip_yaw_link","type":"revolute","pos":[-0.1165,0.5389,0.0608],"axis":[0.0,0.9625,-0.2715],"effort":88.0},"right_knee_joint":{"parent":"right_hip_yaw_link","child":"right_knee_link","type":"revolute","pos":[-0.1186,0.347,0.0336],"axis":[1.0,0.0,0.0],"effort":139.0},"right_ankle_pitch_joint":{"parent":"right_knee_link","child":"right_ankle_pitch_link","type":"revolute","pos":[-0.1185,0.053,-0.026],"axis":[1.0,0.0,0.0],"effort":35.0},"right_ankle_roll_joint":{"parent":"right_ankle_pitch_link","child":"right_ankle_roll_link","type":"revolute","pos":[-0.1185,0.0354,-0.026],"axis":[0.0,0.0,1.0],"effort":35.0},"waist_yaw_joint":{"parent":"pelvis","child":"waist_yaw_link","type":"revolute","pos":[0.0,0.7846,0.0],"axis":[0.0,1.0,0.0],"effort":88.0},"waist_roll_joint":{"parent":"waist_yaw_link","child":"waist_roll_link","type":"revolute","pos":[0.0,0.8286,-0.004],"axis":[0.0,0.0,1.0],"effort":35.0},"waist_pitch_joint":{"parent":"waist_roll_link","child":"torso_link","type":"revolute","pos":[0.0,0.8286,-0.004],"axis":[1.0,0.0,0.0],"effort":35.0},"logo_joint":{"parent":"torso_link","child":"logo_link","type":"fixed","pos":[0.0,0.7846,0.0],"axis":[0.0,0.0,0.0],"effort":0},"head_joint":{"parent":"torso_link","child":"head_link","type":"fixed","pos":[0.0,0.7846,0.0],"axis":[0.0,0.0,0.0],"effort":0},"imu_in_torso_joint":{"parent":"torso_link","child":"imu_in_torso","type":"fixed","pos":[-0.0022,0.9765,-0.0436],"axis":[0.0,0.0,0.0],"effort":0},"imu_in_pelvis_joint":{"parent":"pelvis","child":"imu_in_pelvis","type":"fixed","pos":[0.0,0.7012,0.0452],"axis":[0.0,0.0,0.0],"effort":0},"d435_joint":{"parent":"torso_link","child":"d435_link","type":"fixed","pos":[0.0175,1.2585,0.0537],"axis":[0.0,0.0,0.0],"effort":0},"mid360_joint":{"parent":"torso_link","child":"mid360_link","type":"fixed","pos":[0.0,1.257,-0.0037],"axis":[0.0,0.0,0.0],"effort":0},"left_shoulder_pitch_joint":{"parent":"torso_link","child":"left_shoulder_pitch_link","type":"revolute","pos":[0.1002,1.0764,-0.0],"axis":[0.9612,0.2757,0.0002],"effort":25.0},"left_shoulder_roll_joint":{"parent":"left_shoulder_pitch_link","child":"left_shoulder_roll_link","type":"revolute","pos":[0.1406,1.0736,0.0],"axis":[-0.0002,-0.0001,1.0],"effort":25.0},"left_shoulder_yaw_joint":{"parent":"left_shoulder_roll_link","child":"left_shoulder_yaw_link","type":"revolute","pos":[0.1652,0.9732,-0.0],"axis":[-0.1791,0.9838,0.0],"effort":25.0},"left_elbow_joint":{"parent":"left_shoulder_yaw_link","child":"left_elbow_link","type":"revolute","pos":[0.1796,0.8939,0.0158],"axis":[0.9838,0.1791,0.0002],"effort":25.0},"left_wrist_roll_joint":{"parent":"left_elbow_link","child":"left_wrist_roll_link","type":"revolute","pos":[0.1975,0.8062,0.0614],"axis":[0.1506,-0.8279,0.5403],"effort":25.0},"left_wrist_pitch_joint":{"parent":"left_wrist_roll_link","child":"left_wrist_pitch_link","type":"revolute","pos":[0.2032,0.7747,0.0819],"axis":[0.9838,0.1791,0.0002],"effort":5.0},"left_wrist_yaw_joint":{"parent":"left_wrist_pitch_link","child":"left_wrist_yaw_link","type":"revolute","pos":[0.2101,0.7366,0.1068],"axis":[-0.0969,0.5315,0.8415],"effort":5.0},"right_shoulder_pitch_joint":{"parent":"torso_link","child":"right_shoulder_pitch_link","type":"revolute","pos":[-0.1002,1.0764,-0.0],"axis":[0.9612,-0.2757,-0.0002],"effort":25.0},"right_shoulder_roll_joint":{"parent":"right_shoulder_pitch_link","child":"right_shoulder_roll_link","type":"revolute","pos":[-0.1406,1.0736,0.0],"axis":[0.0002,-0.0001,1.0],"effort":25.0},"right_shoulder_yaw_joint":{"parent":"right_shoulder_roll_link","child":"right_shoulder_yaw_link","type":"revolute","pos":[-0.1652,0.9732,-0.0],"axis":[0.1791,0.9838,0.0],"effort":25.0},"right_elbow_joint":{"parent":"right_shoulder_yaw_link","child":"right_elbow_link","type":"revolute","pos":[-0.1796,0.8939,0.0158],"axis":[0.9838,-0.1791,-0.0002],"effort":25.0},"right_wrist_roll_joint":{"parent":"right_elbow_link","child":"right_wrist_roll_link","type":"revolute","pos":[-0.1975,0.8062,0.0614],"axis":[-0.1506,-0.8279,0.5403],"effort":25.0},"right_wrist_pitch_joint":{"parent":"right_wrist_roll_link","child":"right_wrist_pitch_link","type":"revolute","pos":[-0.2032,0.7747,0.0819],"axis":[0.9838,-0.1791,-0.0002],"effort":5.0},"right_wrist_yaw_joint":{"parent":"right_wrist_pitch_link","child":"right_wrist_yaw_link","type":"revolute","pos":[-0.2101,0.7366,0.1068],"axis":[0.0969,0.5315,0.8415],"effort":5.0},"L_base_link_joint":{"parent":"left_wrist_yaw_link","child":"L_hand_base_link","type":"fixed","pos":[0.2164,0.7023,0.1292],"axis":[0.0,0.0,0.0],"effort":0},"L_thumb_proximal_yaw_joint":{"parent":"L_hand_base_link","child":"L_thumb_proximal_base","type":"revolute","pos":[0.2081,0.6529,0.1837],"axis":[0.1506,-0.8279,0.5403],"effort":1.0},"L_thumb_proximal_pitch_joint":{"parent":"L_thumb_proximal_base","child":"L_thumb_proximal","type":"revolute","pos":[0.1932,0.66,0.1823],"axis":[0.7114,0.4703,0.5223],"effort":1.0},"L_thumb_intermediate_joint":{"parent":"L_thumb_proximal","child":"L_thumb_intermediate","type":"revolute","pos":[0.1687,0.6453,0.2305],"axis":[0.7114,0.4703,0.5223],"effort":1.0},"L_thumb_distal_joint":{"parent":"L_thumb_intermediate","child":"L_thumb_distal","type":"revolute","pos":[0.1572,0.6436,0.25],"axis":[0.7114,0.4703,0.5223],"effort":1.0},"L_index_proximal_joint":{"parent":"L_hand_base_link","child":"L_index_proximal","type":"revolute","pos":[0.2341,0.6064,0.2301],"axis":[0.1021,-0.5601,-0.8221],"effort":1.0},"L_index_intermediate_joint":{"parent":"L_index_proximal","child":"L_index_intermediate","type":"revolute","pos":[0.2286,0.5794,0.2466],"axis":[0.1021,-0.5601,-0.8221],"effort":1.0},"L_middle_proximal_joint":{"parent":"L_hand_base_link","child":"L_middle_proximal","type":"revolute","pos":[0.2361,0.5957,0.2142],"axis":[0.0969,-0.5315,-0.8415],"effort":1.0},"L_middle_intermediate_joint":{"parent":"L_middle_proximal","child":"L_middle_intermediate","type":"revolute","pos":[0.2291,0.5683,0.2295],"axis":[0.0969,-0.5315,-0.8415],"effort":1.0},"L_ring_proximal_joint":{"parent":"L_hand_base_link","child":"L_ring_proximal","type":"revolute","pos":[0.2379,0.5856,0.1979],"axis":[0.0889,-0.4875,-0.8686],"effort":1.0},"L_ring_intermediate_joint":{"parent":"L_ring_proximal","child":"L_ring_intermediate","type":"revolute","pos":[0.2295,0.5578,0.2115],"axis":[0.0889,-0.4875,-0.8686],"effort":1.0},"L_pinky_proximal_joint":{"parent":"L_hand_base_link","child":"L_pinky_proximal","type":"revolute","pos":[0.2396,0.5764,0.1811],"axis":[0.0807,-0.4421,-0.8933],"effort":1.0},"L_pinky_intermediate_joint":{"parent":"L_pinky_proximal","child":"L_pinky_intermediate","type":"revolute","pos":[0.2297,0.5482,0.193],"axis":[0.0807,-0.4421,-0.8933],"effort":1.0},"R_base_link_joint":{"parent":"right_wrist_yaw_link","child":"R_hand_base_link","type":"fixed","pos":[-0.2164,0.7023,0.1292],"axis":[0.0,0.0,0.0],"effort":0},"R_thumb_proximal_yaw_joint":{"parent":"R_hand_base_link","child":"R_thumb_proximal_base","type":"revolute","pos":[-0.2081,0.6529,0.1837],"axis":[0.1506,0.8279,-0.5403],"effort":1.0},"R_thumb_proximal_pitch_joint":{"parent":"R_thumb_proximal_base","child":"R_thumb_proximal","type":"revolute","pos":[-0.1929,0.6594,0.1809],"axis":[0.6291,-0.5018,-0.5937],"effort":1.0},"R_thumb_intermediate_joint":{"parent":"R_thumb_proximal","child":"R_thumb_intermediate","type":"revolute","pos":[-0.165,0.6423,0.2263],"axis":[0.6291,-0.5018,-0.5937],"effort":1.0},"R_thumb_distal_joint":{"parent":"R_thumb_intermediate","child":"R_thumb_distal","type":"revolute","pos":[-0.1519,0.6395,0.2446],"axis":[0.6291,-0.5018,-0.5937],"effort":1.0},"R_index_proximal_joint":{"parent":"R_hand_base_link","child":"R_index_proximal","type":"revolute","pos":[-0.2341,0.6064,0.2301],"axis":[0.1021,0.5601,0.8221],"effort":1.0},"R_index_intermediate_joint":{"parent":"R_index_proximal","child":"R_index_intermediate","type":"revolute","pos":[-0.2284,0.5794,0.2466],"axis":[0.1021,0.5601,0.8221],"effort":1.0},"R_middle_proximal_joint":{"parent":"R_hand_base_link","child":"R_middle_proximal","type":"revolute","pos":[-0.236,0.5957,0.2142],"axis":[0.0969,0.5315,0.8415],"effort":1.0},"R_middle_intermediate_joint":{"parent":"R_middle_proximal","child":"R_middle_intermediate","type":"revolute","pos":[-0.2291,0.5683,0.2295],"axis":[0.0969,0.5315,0.8415],"effort":1.0},"R_ring_proximal_joint":{"parent":"R_hand_base_link","child":"R_ring_proximal","type":"revolute","pos":[-0.2379,0.5856,0.1979],"axis":[0.0889,0.4874,0.8686],"effort":1.0},"R_ring_intermediate_joint":{"parent":"R_ring_proximal","child":"R_ring_intermediate","type":"revolute","pos":[-0.2295,0.5578,0.2115],"axis":[0.0889,0.4874,0.8686],"effort":1.0},"R_pinky_proximal_joint":{"parent":"R_hand_base_link","child":"R_pinky_proximal","type":"revolute","pos":[-0.2396,0.5764,0.1811],"axis":[0.0807,0.4421,0.8933],"effort":1.0},"R_pinky_intermediate_joint":{"parent":"R_pinky_proximal","child":"R_pinky_intermediate","type":"revolute","pos":[-0.2297,0.5482,0.193],"axis":[0.0807,0.4421,0.8933],"effort":1.0}}};
+const L=META.links,J=META.joints;
+const jointOf={};for(const k in J)jointOf[J[k].child]=k;
+function SECOF(n){
+  if(n==='head_link')return'head';if(n==='torso_link'||n==='logo_link')return'torso';
+  if(/^(pelvis|waist)/.test(n))return'waist';
+  if(/^left_(hip|knee|ankle)/.test(n))return'legL';if(/^right_(hip|knee|ankle)/.test(n))return'legR';
+  if(/^left_/.test(n))return'armL';if(/^right_/.test(n))return'armR';
+  if(/^L_/.test(n))return'handL';if(/^R_/.test(n))return'handR';return'torso';}
+const LBL={hip_pitch_link:'Soporte de cadera',hip_roll_link:'Cadera',hip_yaw_link:'Muslo',knee_link:'Pantorrilla',ankle_pitch_link:'Tobillo',ankle_roll_link:'Pie',
+ shoulder_pitch_link:'Hombro',shoulder_roll_link:'Hombro (roll)',shoulder_yaw_link:'Brazo superior',elbow_link:'Antebrazo',wrist_roll_link:'Muñeca (roll)',wrist_pitch_link:'Muñeca (pitch)',wrist_yaw_link:'Muñeca (yaw)',
+ hand_base_link:'Palma (6 servos lineales adentro)',thumb_distal:'Pulgar (2 motores)',index_proximal:'Falange proximal',index_intermediate:'Falange distal',pinky_intermediate:'Meñique',
+ pelvis:'Pelvis (estructura)',pelvis_contour_link:'Carcasa de la pelvis',waist_yaw_link:'Cintura (giro)',waist_roll_link:'Cintura (inclinación)'};
+const lblOf=n=>LBL[n]||LBL[n.replace(/^(left_|right_|L_|R_)/,'')]||null;
+const sideOf=n=>{const c=L[n].c[0];return Math.abs(c)<.03?1:Math.sign(c);};
+const depthOf=n=>{let d=0,p=L[n].parent;const s=SECOF(n);while(p&&L[p]&&SECOF(p)===s){d++;p=L[p].parent;}return d;};
+const inc={};
+for(const n in L){const s=SECOF(n),k=sideOf(n),c=V(...L[n].c);
+  if(s.startsWith('leg'))inc[n]=V(k*.02,-.012,.08);
+  else if(s.startsWith('arm'))inc[n]=V(k*.06,-.03,.04);
+  else if(s.startsWith('hand')){if(/hand_base/.test(n))inc[n]=V(k*.04,-.07,.07);else{const jp=V(...J[jointOf[n]].pos);inc[n]=c.clone().sub(jp).normalize().multiplyScalar(.055).add(V(k*.012,0,0));}}
+  else if(n==='pelvis_contour_link')inc[n]=V(0,-.02,.24);
+  else if(n==='waist_yaw_link')inc[n]=V(0,.07,0);
+  else if(n==='waist_roll_link')inc[n]=V(0,.06,0);
+  else if(n==='head_link')inc[n]=V(0,.09,0);
+  else if(n==='logo_link')inc[n]=V(0,.03,.34);
+  else inc[n]=V(0,0,0);}
+
+const robot=new THREE.Group();scene.add(robot);
+const pieces=[],labels=[],stacks=[];let G=0,active=null;const lvl={};SECS.forEach(s=>lvl[s]=0);
+const act=s=>!!(G||lvl[s]);
+const alpha={},alphaT={};SECS.forEach(s=>{alpha[s]=1;alphaT[s]=1;});
+let iso=false;
+function setVis(){SECS.forEach(s=>alphaT[s]=(!active||!iso||G||s===active)?1:0);}
+let lastT=performance.now();
+function fade(now){const dt=Math.min(.1,(now-lastT)/1000);lastT=now;
+  for(const s of SECS){if(alpha[s]===alphaT[s])continue;const sp=DUR?dt/.45:1;alpha[s]=alphaT[s]>alpha[s]?Math.min(1,alpha[s]+sp):Math.max(0,alpha[s]-sp);
+    const a=alpha[s];for(const m of Object.values(mats[s])){m.opacity=a;const tr=a<.999||!!m.userData.alwaysT;if(m.transparent!==tr){m.transparent=tr;m.needsUpdate=true;}m.depthWrite=a>.5;}}
+  for(const p of pieces)if(!p.local&&!p.isStack)p.o.visible=alpha[p.sec]>.001;}
+function chainOff(n){const v=V(0,0,0);while(n&&L[n]){if(act(SECOF(n)))v.add(inc[n]);n=L[n].parent;}return v;}
+function addPiece(o,sec,home,tgt,depth,label,bottom){
+  o.position.copy(home);robot.add(o);
+  o.traverse(c=>{if(c.isMesh){c.castShadow=true;c.receiveShadow=true;c.userData.sec=sec;}});
+  const p={o,sec,home:home.clone(),tgt,depth,bottom:bottom??-1,from:V(0,0,0),to:V(0,0,0),off:V(0,0,0),t0:0,dur:1,active:false};
+  pieces.push(p);
+  if(label){const el=document.createElement('div');el.className='tag';el.innerHTML=`<span>${label}</span>`;
+    if(labels.filter(l=>l.s===sec).length%2)el.classList.add('l');labelsEl.appendChild(el);labels.push({p,el,s:sec});}
+  return p;}
+
+/* actuador procedural que aparece entre las piezas */
+const ACT=[['Carcasa',.22,'case'],['Encoder doble',.06,'enc'],['Estátor (bobinas)',.2,'stat'],['Rotor de imanes',.15,'rot'],['Reductor planetario',.16,'plan'],['Rodamiento de rodillos',.09,'bear'],['Brida de salida',.12,'flange']];
+function piece(k,r,h,m){
+  const g=new THREE.Group();
+  if(k==='case'){g.add(cyl(r,r,h,m.dark));const b=cyl(r*.45,r*.45,h*.4,m.metal,24);b.position.y=-h*.6;g.add(b);}
+  else if(k==='enc'){g.add(cyl(r*.86,r*.86,h,m.pcb));const c=box(r*.3,h*.8,r*.3,m.black);c.position.set(r*.35,h*.4,0);g.add(c);}
+  else if(k==='stat'){g.add(cyl(r*.62,r*.62,h*.95,m.dark));
+    for(let i=0;i<12;i++){const a=i/12*Math.PI*2,c=box(r*.3,h,r*.26,m.copper);c.position.set(Math.cos(a)*r*.78,0,Math.sin(a)*r*.78);c.rotation.y=-a;g.add(c);}}
+  else if(k==='rot'){g.add(cyl(r*.52,r*.52,h,m.magnet));g.add(cyl(r*.12,r*.12,h*1.8,m.metal,16));
+    for(let i=0;i<8;i++){const a=i/8*Math.PI*2,c=box(r*.08,h*.96,r*.22,i%2?m.accent:m.black);c.position.set(Math.cos(a)*r*.5,0,Math.sin(a)*r*.5);c.rotation.y=-a;g.add(c);}}
+  else if(k==='plan'){const ring=new THREE.Mesh(new THREE.TorusGeometry(r*.8,Math.min(r*.13,h*.5),10,40),m.metal);ring.rotation.x=Math.PI/2;g.add(ring);
+    g.add(cyl(r*.2,r*.2,h,m.metal,16));for(let i=0;i<3;i++){const a=i/3*Math.PI*2,p=cyl(r*.26,r*.26,h*.9,m.magnet,20);p.position.set(Math.cos(a)*r*.47,0,Math.sin(a)*r*.47);g.add(p);}}
+  else if(k==='bear'){const t=new THREE.Mesh(new THREE.TorusGeometry(r*.84,Math.min(r*.1,h*.5),8,40),m.metal);t.rotation.x=Math.PI/2;g.add(t);
+    for(let i=0;i<14;i++){const a=i/14*Math.PI*2,c=cyl(r*.06,r*.06,h*.7,m.black,8);c.position.set(Math.cos(a)*r*.84,0,Math.sin(a)*r*.84);c.rotation.x=i%2?.7:-.7;g.add(c);}}
+  else{g.add(cyl(r*.72,r*.92,h,m.metal));for(let i=0;i<6;i++){const a=i/6*Math.PI*2,c=cyl(r*.07,r*.07,h*.2,m.black,8);c.position.set(Math.cos(a)*r*.56,h*.45,Math.sin(a)*r*.56);c.rotation.x=0;g.add(c);}}
+  return g;}
+const FEAT={left_knee_joint:1,right_knee_joint:1,left_shoulder_pitch_joint:1,right_shoulder_pitch_joint:1,waist_yaw_joint:1};
+const SHIFT={waist_yaw_joint:V(0,-.06,.32),waist_roll_joint:V(.3,.02,.1),waist_pitch_joint:V(-.3,.02,.1)};
+function addStack(jn){
+  const j=J[jn],sec=jn.startsWith('waist')?'waist':SECOF(j.child),k=sideOf(j.child),feat=!!FEAT[jn];
+  const r=j.effort>=80?.044:j.effort>=30?.034:j.effort>=20?.028:.02,len=r*1.5;
+  const ax=V(...j.axis).normalize(),q=new THREE.Quaternion().setFromUnitVectors(V(0,1,0),ax.clone().multiplyScalar(k<0&&Math.abs(ax.x)>.5?-1:1));
+  const shift=SHIFT[jn]||(sec.startsWith('leg')?V(k*.17,0,.05):V(k*.15,0,.09));
+  const d=depthOf(j.child)+.5,home=V(...j.pos),parent=j.parent,child=j.child;
+  const grp=new THREE.Group();grp.quaternion.copy(q);
+  const gp=addPiece(grp,sec,home,()=>chainOff(parent).add(chainOff(child)).multiplyScalar(.5).add(act(sec)?shift:V(0,0,0)),d,null);
+  const step=Math.max(r*1.35,.03)*(feat&&jn!=='waist_yaw_joint'?1.25:1);let y=-len/2;
+  const sub=[];
+  ACT.forEach(([lab,t,kind],i)=>{const th=t*len,o=piece(kind,r,th,mats[sec]);const lp=V(0,y+th/2,0);y+=th;
+    o.position.copy(lp);grp.add(o);o.traverse(c=>{if(c.isMesh){c.castShadow=true;c.userData.sec=sec;}});
+    const sp={o,sec,home:lp,tgt:()=>act(sec)?V(0,(i-(ACT.length-1)/2)*step,0):V(0,0,0),depth:d+.3,bottom:-1,from:V(0,0,0),to:V(0,0,0),off:V(0,0,0),t0:0,dur:1,active:false,local:true};
+    pieces.push(sp);sub.push(sp);
+    if(feat){const el=document.createElement('div');el.className='tag';el.innerHTML=`<span>${lab}</span>`;if(i%2)el.classList.add('l');labelsEl.appendChild(el);labels.push({p:sp,el,s:sec});}});
+  grp.visible=false;gp.isStack=true;stacks.push({gp,sub,sec});
+}
+
+/* interior del torso y de la cabeza (componentes reales, modelados) */
+function interiors(){
+  const s='torso',m=mats[s],T=()=>chainOff('torso_link');
+  const bat=new THREE.Group();bat.add(box(.15,.16,.034,m.battery));const bs=box(.15,.01,.036,m.accent);bs.position.y=.06;bat.add(bs);const hd=box(.06,.014,.012,m.black);hd.position.set(0,-.05,-.021);bat.add(hd);
+  addPiece(bat,s,V(0,.95,-.045),()=>T().add(act(s)?V(0,0,-.42):V(0,0,0)),2,'Batería 9000 mAh extraíble');
+  const jet=new THREE.Group();jet.add(box(.1,.08,.006,m.pcb));const hs=box(.084,.064,.01,m.metal);hs.position.z=.008;jet.add(hs);
+  for(let i=0;i<7;i++){const f=box(.084,.003,.012,m.metal);f.position.set(0,-.027+i*.009,.018);jet.add(f);}
+  addPiece(jet,s,V(-.02,1.03,.03),()=>T().add(act(s)?V(-.2,.05,.36):V(0,0,0)),2,'NVIDIA Jetson Orin NX');
+  const cpu=new THREE.Group();cpu.add(box(.07,.06,.005,m.pcb));const ch=box(.025,.025,.006,m.black);ch.position.z=.005;cpu.add(ch);
+  addPiece(cpu,s,V(.03,.92,.035),()=>T().add(act(s)?V(.2,-.06,.32):V(0,0,0)),2,'Placa de control (CPU 8 núcleos)');
+  const fan=new THREE.Group();const fr=cyl(.022,.022,.008,m.dark,24);fr.rotation.x=Math.PI/2;fan.add(fr);
+  for(let i=0;i<5;i++){const b=box(.004,.018,.002,m.metal);b.position.set(Math.cos(i*1.256)*.009,Math.sin(i*1.256)*.009,.005);b.rotation.z=i*1.256;fan.add(b);}
+  addPiece(fan,s,V(-.06,.9,.02),()=>T().add(act(s)?V(-.24,-.1,.2):V(0,0,0)),2,'Ventilador');
+  const imu=(m)=>{const g=new THREE.Group();g.add(box(.032,.004,.032,m.pcb));const c=box(.012,.004,.012,m.black);c.position.y=.004;g.add(c);const a=box(.004,.003,.004,m.accent);a.position.set(.011,.004,.011);g.add(a);return g;};
+  addPiece(imu(mats.waist),'waist',V(...J.imu_in_pelvis_joint.pos),()=>chainOff('pelvis').add(act('waist')?V(.2,-.02,.22):V(0,0,0)),1,'IMU: giroscopio + acelerómetro');
+  addPiece(imu(m),s,V(...J.imu_in_torso_joint.pos),()=>T().add(act(s)?V(.24,.1,.12):V(0,0,0)),2,'IMU del torso');
+  const h='head',mh=mats[h],H=()=>chainOff('head_link');
+  const lid=new THREE.Group();lid.add(cyl(.033,.033,.05,mh.dark,32));const lw=cyl(.0335,.0335,.022,mh.black,32);lw.position.y=.005;lid.add(lw);const lt=cyl(.027,.027,.004,mh.metal,32);lt.position.y=.026;lid.add(lt);
+  addPiece(lid,h,V(...J.mid360_joint.pos).add(V(0,-.02,0)),()=>H().add(act(h)?V(0,.17,-.02):V(0,0,0)),2,'LiDAR Livox MID-360');
+  const cam=new THREE.Group();cam.add(box(.09,.025,.025,mh.dark));
+  [-.032,-.008,.032].forEach((x,i)=>{const l=cyl(.006,.006,.006,i==1?mh.accent:mh.black,16);l.rotation.x=Math.PI/2;l.position.set(x,0,.013);cam.add(l);});
+  cam.rotation.x=.45;
+  addPiece(cam,h,V(...J.d435_joint.pos).add(V(-.018,-.02,-.01)),()=>H().add(act(h)?V(0,-.04,.32):V(0,0,0)),2,'Cámara RealSense D435i');
+}
+
+/* corte por mitades (para abrir el torso y la cabeza) */
+const cuts=[];
+function cutHalves(mesh,n,sec,matKey){
+  const z0=L[n].c[2];const mk=(sgn)=>{const m=mats[sec][matKey].clone();m.side=THREE.DoubleSide;m.clipShadows=true;
+    const pl=new THREE.Plane(V(0,0,sgn),-sgn*z0);m.clippingPlanes=[pl];mats[sec][matKey+(sgn>0?'F':'B')]=m;return{m,pl};};
+  const f=mk(1),b=mk(-1);
+  const front=new THREE.Mesh(mesh.geometry,f.m),back=new THREE.Mesh(mesh.geometry,b.m);
+  const fo=n==='torso_link'?V(0,.02,.28):V(0,.03,.2),bo=n==='torso_link'?V(0,0,-.2):V(0,.03,-.16);
+  const bottom=L[n].c[1]-L[n].size[1]/2;
+  const pf=addPiece(front,sec,V(0,0,0),()=>chainOff(n).add(act(sec)?fo:V(0,0,0)),1,n==='torso_link'?'Carcasa del pecho':'Frente de la cabeza',bottom);
+  const pb=addPiece(back,sec,V(0,0,0),()=>chainOff(n).add(act(sec)?bo:V(0,0,0)),1,n==='torso_link'?'Carcasa de la espalda':'Parte trasera',bottom);
+  pf.c=[L[n].c[0],L[n].c[1],z0+.05];pb.c=[L[n].c[0],L[n].c[1],z0-.05];
+  cuts.push({p:pf,pl:f.pl,z0,s:1},{p:pb,pl:b.pl,z0,s:-1});
+  return[front,back,mesh.geometry];
+}
+
+let torsoH=null;
+function pvsTex(){const c=document.createElement('canvas');c.width=512;c.height=128;const g=c.getContext('2d');g.fillStyle='#2b2f35';g.font='italic 900 118px Archivo, "Arial Black", sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('PVS',256,68);const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;t.anisotropy=4;return t;}
+function decals([front,back,geo]){
+  const lg=L.logo_link,y=lg.c[1],tex=pvsTex();
+  const m=M(0xffffff,{map:tex,transparent:true,roughness:.4,metalness:.2,polygonOffset:true,polygonOffsetFactor:-2});m.userData.alwaysT=true;mats.torso.decal=m;
+  const probe=new THREE.Mesh(geo);probe.updateMatrixWorld(true);const rc=new THREE.Raycaster();
+  [[front,1],[back,-1]].forEach(([half,s])=>{rc.set(V(0,y,s),V(0,0,-s));const hit=rc.intersectObject(probe)[0];if(!hit)return;
+    const nrm=hit.face.normal.clone().normalize();if(nrm.z*s<0)nrm.negate();
+    const d=new THREE.Mesh(new THREE.PlaneGeometry(.12,.03),m);d.position.copy(hit.point).addScaledVector(nrm,.0015);d.lookAt(d.position.clone().add(nrm));d.userData.sec='torso';half.add(d);});
+}
+function build(gltf){
+  const meshes={};gltf.scene.traverse(o=>{if(o.isMesh)meshes[o.name in L?o.name:o.parent.name]=o;});
+  for(const n in L){const o=meshes[n];if(!o)continue;const s=SECOF(n);
+    const mk=s.startsWith('hand')?'hand':(L[n].mat==='dark'?'dark':'white');
+    if(n==='logo_link')continue;
+    if(n==='torso_link'||n==='head_link'){const r=cutHalves(o,n,s,mk);if(n==='torso_link')torsoH=r;continue;}
+    const g=new THREE.Mesh(o.geometry,mats[s][mk]);
+    addPiece(g,s,V(0,0,0),()=>chainOff(L[n].parent).add(act(s)?inc[n]:V(0,0,0)),depthOf(n),lblOf(n),L[n].c[1]-L[n].size[1]/2).c=L[n].c;}
+  for(const jn in J){const j=J[jn];if(j.type!=='revolute'||!L[j.child]||!L[j.parent])continue;if(/^[LR]_/.test(j.child))continue;addStack(jn);}
+  interiors();if(torsoH)decals(torsoH);
+  ALLREADY();
+}
+
+/* ---------- animación ---------- */
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+function targetOf(p){const v=p.tgt();if(p.bottom>=0){const b=p.bottom+v.y;if(b<.003)v.y+=.003-b;}return v;}
+function retarget(stepMs=70,dur=900){const now=performance.now();
+  for(const p of pieces){const t=targetOf(p);if(t.distanceToSquared(p.to)<1e-10&&!p.active)continue;
+    const out=t.lengthSq()>p.to.lengthSq();p.from.copy(p.off);p.to.copy(t);
+    p.t0=now+(out?p.depth:Math.max(0,7-p.depth))*stepMs*DUR;p.dur=Math.max(1,dur*DUR);p.active=true;}}
+function snap(){for(const p of pieces){const t=targetOf(p);p.to.copy(t);p.off.copy(t);p.active=false;p.o.position.copy(p.home).add(t);}}
+
+/* ---------- cámara ---------- */
+let cam=null;
+const aspectK=()=>Math.max(1,1.15/camera.aspect);
+function flyTo(t,p,dur=1100){cam={t0:performance.now(),dur:Math.max(1,dur*DUR),p0:camera.position.clone(),p1:p,q0:controls.target.clone(),q1:t};}
+controls.addEventListener('start',()=>{cam=null;});
+const VIEW={head:[.6,.2,1],torso:[1,.25,.6],waist:[.8,.25,1],arm:[.6,.25,1],hand:[1,.25,.7],leg:[.55,.2,1]};const DIST={head:1.15,torso:1.65,waist:1.6,arm:1,hand:1.25,leg:1};
+function focusSec(s){
+  const b=new THREE.Box3();for(const n in L)if(SECOF(n)===s){const c=V(...L[n].c),h=V(...L[n].size).multiplyScalar(.5);b.expandByPoint(c.clone().sub(h));b.expandByPoint(c.clone().add(h));}
+  const c=b.getCenter(V(0,0,0)),sz=b.getSize(V(0,0,0)),side=Math.sign(c.x)||1,key=infoKey(s),v=VIEW[key];
+  if(key==='leg')c.add(V(side*.05,0,.15));if(key==='arm')c.add(V(side*.12,-.08,.1));if(key==='hand')c.add(V(side*.06,-.06,.08));
+  if(key==='torso')c.add(V(0,0,0));if(key==='head')c.add(V(0,.08,.06));if(key==='waist')c.add(V(0,.04,.08));
+  const d=THREE.MathUtils.clamp(Math.max(sz.x,sz.y,sz.z)*2.6+.55,.75,2.8)*aspectK()*DIST[key];
+  flyTo(c,c.clone().add(V(v[0]*side,v[1],v[2]).normalize().multiplyScalar(d)));
+}
+const flyHome=(far=1)=>flyTo(HOME_T.clone(),HOME_T.clone().add(HOME_P.clone().sub(HOME_T).multiplyScalar(far*aspectK())));
+
+/* ---------- selección ---------- */
+const nav=$('#nav'),bAll=$('#bAll');
+function syncNav(){nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-current',String((b.dataset.k===active)||(!active&&b.dataset.k==='overview'))));}
+function syncSecBtn(){const b=$('#bSec');if(b&&active)b.textContent=lvl[active]?'Volver a armar esta parte':'Desarmar esta parte';}
+function select(k){
+  hint.classList.add('off');
+  if(k==='overview')k=null;
+  if(k&&k===active){toggleSec();return;}
+  iso=!!k;
+  let ch=false;
+  if(active&&lvl[active]){lvl[active]=0;ch=true;}
+  if(G){G=0;bAll.setAttribute('aria-pressed','false');bAll.textContent='Desarmar todo';ch=true;}
+  if(ch)retarget();
+  active=k;render(k||'overview');syncNav();
+  if(k)setVis();else setTimeout(setVis,(ch?700:0)*DUR);
+  if(k){focusSec(k);setTimeout(()=>{if(active===k&&!lvl[k]){lvl[k]=1;iso=true;setVis();retarget();syncSecBtn();}},380*DUR);}
+  else flyHome();
+}
+function toggleSec(){if(!active)return;lvl[active]^=1;retarget();syncSecBtn();
+  if(lvl[active]){iso=true;setVis();}else{iso=false;setTimeout(()=>{if(!iso)setVis();},700*DUR);flyHome();}}
+nav.addEventListener('click',e=>{const b=e.target.closest('button');if(b)select(b.dataset.k);});
+bAll.onclick=()=>{
+  if(active){lvl[active]=0;active=null;render('overview');syncNav();}
+  G^=1;setVis();bAll.setAttribute('aria-pressed',String(!!G));bAll.textContent=G?'Armar todo':'Desarmar todo';retarget(60,1100);flyHome(G?1.35:1);hint.classList.add('off');
+};
+$('#bReplay').onclick=()=>{if(active){lvl[active]=0;active=null;render('overview');syncNav();}
+  setVis();G=1;snap();G=0;bAll.setAttribute('aria-pressed','false');bAll.textContent='Desarmar todo';flyHome(1.1);setTimeout(()=>retarget(110,1300),250*DUR);};
+const bRot=$('#bRot');bRot.onclick=()=>{controls.autoRotate=!controls.autoRotate;bRot.setAttribute('aria-pressed',String(controls.autoRotate));};
+$('#bHome').onclick=()=>{iso=false;select('overview');SECS.forEach(s=>alphaT[s]=1);};
+addEventListener('keydown',e=>{
+  if(e.target.closest&&e.target.closest('button')&&e.key===' ')return;
+  const i=ORDER.indexOf(active||'overview');
+  if(e.key==='ArrowRight'){select(ORDER[(i+1)%ORDER.length]);e.preventDefault();}
+  else if(e.key==='ArrowLeft'){select(ORDER[(i-1+ORDER.length)%ORDER.length]);e.preventDefault();}
+  else if(e.key==='Escape')select('overview');
+  else if(e.key===' '&&active){toggleSec();e.preventDefault();}
+});
+
+/* ---------- puntero ---------- */
+const ray=new THREE.Raycaster(),ptr=new THREE.Vector2();let hov=null,down=null,lastMove=null;
+function pick(e){const r=renderer.domElement.getBoundingClientRect();ptr.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+  ray.setFromCamera(ptr,camera);
+  for(const h of ray.intersectObject(robot,true)){const o=h.object;if(!o.userData.sec||alpha[o.userData.sec]<.5||!o.visible)continue;
+    const cp=o.material.clippingPlanes;if(cp&&cp.some(pl=>pl.distanceToPoint(h.point)<0))continue;return o.userData.sec;}
+  return null;}
+function setHL(s,on){if(!s)return;Object.values(mats[s]).forEach(m=>{if(!m.userData.e0){m.userData.e0=m.emissive.clone();m.userData.ei=m.emissiveIntensity;}
+  if(on){m.emissive.setHex(0x2f6bff);m.emissiveIntensity=.22;}else{m.emissive.copy(m.userData.e0);m.emissiveIntensity=m.userData.ei;}});}
+const cv=renderer.domElement;
+cv.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};});
+cv.addEventListener('pointerup',e=>{if(!down)return;const moved=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(moved<6){const s=pick(e);if(s)select(s);else if(active&&lvl[active])toggleSec();}});
+cv.addEventListener('pointermove',e=>{if(e.pointerType==='mouse')lastMove=e;});
+cv.addEventListener('pointerleave',()=>{lastMove=null;if(hov){setHL(hov,false);hov=null;}tip.classList.remove('on');cv.style.cursor='';});
+function hover(){if(!lastMove||down)return;const e=lastMove;lastMove=null;const s=pick(e);
+  if(s!==hov){setHL(hov,false);setHL(s,true);hov=s;}
+  cv.style.cursor=s?'pointer':'';
+  if(s){const r=stage.getBoundingClientRect();tip.textContent=NAMES[s];tip.style.transform=`translate(${e.clientX-r.left+14}px,${e.clientY-r.top+14}px)`;tip.classList.add('on');}
+  else tip.classList.remove('on');}
+
+/* ---------- bucle ---------- */
+function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+const ro=new ResizeObserver(resize);ro.observe(stage);resize();
+const tmp=new THREE.Vector3();
+function tick(now){
+  for(const p of pieces){if(!p.active)continue;const k=THREE.MathUtils.clamp((now-p.t0)/p.dur,0,1);
+    if(k<=0)continue;p.off.lerpVectors(p.from,p.to,ease(k));p.o.position.copy(p.home).add(p.off);if(k>=1)p.active=false;}
+  for(const c of cuts)c.pl.constant=-c.s*(c.z0+c.p.o.position.z);
+  fade(now);
+  for(const st of stacks)st.gp.o.visible=alpha[st.sec]>.001&&(act(st.sec)||st.gp.active||st.sub.some(p=>p.active||p.off.lengthSq()>1e-8));
+  if(cam){const k=Math.min(1,(now-cam.t0)/cam.dur),e=ease(k);camera.position.lerpVectors(cam.p0,cam.p1,e);controls.target.lerpVectors(cam.q0,cam.q1,e);if(k>=1)cam=null;}
+  controls.update();hover();
+  renderer.render(scene,camera);
+  const W=stage.clientWidth,H=stage.clientHeight;
+  for(const l of labels){const show=!G&&active===l.s&&lvl[l.s]&&!l.p.active;
+    if(show){l.p.o.getWorldPosition(tmp);if(l.p.c)tmp.add(V(...l.p.c));
+      tmp.project(camera);
+      if(tmp.z<1){l.el.style.transform=`translate(${((tmp.x*.5+.5)*W).toFixed(1)}px,${((-tmp.y*.5+.5)*H).toFixed(1)}px)`;l.el.classList.add('on');continue;}}
+    l.el.classList.remove('on');}
+  requestAnimationFrame(tick);
+}
+function ALLREADY(){
+  $('#loading')?.remove();
+  G=1;snap();G=0;camera.position.copy(HOME_T.clone().add(HOME_P.clone().sub(HOME_T).multiplyScalar(1.2*aspectK())));flyHome();
+  setTimeout(()=>retarget(110,1300),350*DUR);
+}
+render('overview');syncNav();
+requestAnimationFrame(tick);
+const ld=document.createElement('div');ld.id='loading';ld.className='err';ld.textContent='Cargando el modelo 3D del G1…';stage.appendChild(ld);
+new THREE.GLTFLoader().load('modelo-g1.glb',g=>{try{build(g);}catch(err){showErr(err.message);console.error(err);}},ev=>{if(ev.total)ld.textContent=`Cargando el modelo 3D del G1… ${Math.round(ev.loaded/ev.total*100)}%`;},()=>{ld.textContent='No se pudo cargar el modelo 3D. Recargá la página.';});
+}
+}
+</script>
+</body>
+</html>
